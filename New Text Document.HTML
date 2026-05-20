@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כולמוביל GO - דשבורד איכות מדיה ומחשבת שיווק</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Rubik', sans-serif; background-color: #f1f5f9; }</style>
+</head>
+<body class="p-6 text-slate-800">
+
+    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-slate-200">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">🎯 דשבורד CMO: ניתוח איכות מדיה ואפקטיביות משפך (שיחות טלפון)</h1>
+            <p class="text-slate-500 text-sm mt-1">כולמוביל GO | חיתוך מדויק לפי ערוצי הפצה ממומנים וניתוח עומק של סיבות פסילה מהשטח</p>
+        </div>
+        <div id="dropzone" class="border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-xl p-4 text-center cursor-pointer hover:bg-indigo-50 transition-all min-w-[320px]">
+            <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden">
+            <label for="excelFile" class="cursor-pointer">
+                <div class="text-indigo-600 font-medium text-sm">גרור את קובץ האקסל של השיחות כאן</div>
+                <div class="text-slate-400 text-xs mt-0.5" id="fileName">phone calls by Colmobil GO team.xlsx</div>
+            </label>
+        </div>
+    </div>
+
+    <div id="dashboardContent" class="max-w-7xl mx-auto space-y-6 hidden">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="text-slate-400 text-xs font-medium">סך הכל לידים/שיחות בלוח הזמנים</div>
+                <div class="text-3xl font-bold text-slate-900 mt-1" id="kpiTotal">0</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-r-orange-500">
+                <div class="text-orange-600 text-xs font-medium">💡 מדד אדישות מדיה (Unresponsive Rate)</div>
+                <div class="text-3xl font-bold text-orange-600 mt-1" id="kpiUnresponsive">0%</div>
+                <p class="text-[10px] text-slate-400 mt-1">אחוז הלידים שלא עונים (בעיית טרגוט/מהירות תגובה)</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-r-red-500">
+                <div class="text-red-600 text-xs font-medium">🛑 מדד לידים לא רלוונטיים (Cull Rate)</div>
+                <div class="text-3xl font-bold text-red-600 mt-1" id="kpiCull">0%</div>
+                <p class="text-[10px] text-slate-400 mt-1">לידים שנפסלו על תנאי סף (גיל, מיקום, כפולים, שגויים)</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="text-slate-400 text-xs font-medium">ערוץ המדיה הכי "מבוזבז" תקציבית</div>
+                <div class="text-lg font-bold text-slate-800 mt-2 truncate" id="kpiWorstChannel">-</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+                <h3 class="text-base font-bold text-slate-900 mb-4">📊 השוואת איכות לידים לפי ערוצי שיווק (Cull Rate & Unresponsive)</h3>
+                <div class="h-[320px]">
+                    <canvas id="chartChannels"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-4">🩸 היכן הכסף "נוזל"? (סיווג הפסילות)</h3>
+                <div class="h-[320px] flex items-center justify-center">
+                    <canvas id="chartLeakage"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-1">🤝 מטריצת התלבטות בין דגמים (Cross-Mention)</h3>
+                <p class="text-xs text-slate-400 mb-4">כמה פעמים דגמים שונים הוזכרו יחד באותה שיחה - מעיד על חלופות רכישה של הלקוח</p>
+                <div class="space-y-3" id="affinityContainer"></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-1">💰 ניתוח התנגדויות מסחריות וציפיות לקוח</h3>
+                <p class="text-xs text-slate-400 mb-4">מגמות עומק שחולצו מטקסט חופשי (רגישות למחיר, צורך בטווח קצר, צורך בפולו-אפ)</p>
+                <div class="space-y-3" id="intentsContainer"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-200 bg-slate-50/50">
+                <h3 class="text-base font-bold text-slate-900">📑 ניתוח ערוצים וקמפיינים ממוקדים - CMO View</h3>
+                <p class="text-xs text-slate-500 mt-1">מבט ממוקד על ביצועי כל קמפיין ברמת איכות הדאטה והמשוב מהנציגים</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/70 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="p-4">ערוץ שיווק / קבוצת קמפיינים</th>
+                            <th class="p-4 text-center">סה"כ לידים</th>
+                            <th class="p-4 text-center text-orange-600">לא ענו (Unresponsive)</th>
+                            <th class="p-4 text-center text-red-600">פסולים (Cull)</th>
+                            <th class="p-4 text-center font-bold">מדד אדישות ופסילה כללי</th>
+                            <th class="p-4">התנגדות/נושא מרכזי בשיחות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaignTableBody" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="initialState" class="max-w-md mx-auto mt-20 text-center bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+        <div class="text-4xl mb-4">🎯</div>
+        <h2 class="text-lg font-bold text-slate-900">הדשבורד השיווקי ממתין לנתונים</h2>
+        <p class="text-slate-500 text-sm mt-2">אנא העלה את קובץ ה-XLSX או ה-CSV של שיחות הטלפון על מנת להפיק תובנות מדיה מתקדמות.</p>
+    </div>
+
+    <script>
+        // המילון המדויק והחוקיות המקורית שלך
+        const MARKETING_CHANNELS = {
+            'פייסבוק - ליד אדס - B2C': [
+                'KLG GoTo Conversion Lead-ads All Leasing-FL-B2C GO02B09E07B03A', 
+                'KLG GoTo Conversion Lead-ads All Leasing-FL-B2C t1039GO02B09E07B03A', 
+                'KLG_GoTo_Conversion_Lead-ads_All_Leasing-FL-B2C_GO02B09E07B03A'
+            ],
+            'פייסבוק - המרות לאתר - B2C': [
+                'KLG_GoTo_Conversion_LP_All_Leasing-FL-B2C_GO02B09B07B03A', 
+                'KLG_GoTo_Conversion_LP_All_Leasing-FL-B2C-Subscription_t1019GO02B09B07B03A'
+            ],
+            'פייסבוק - ליד אדס - B2B': [
+                'KLG_GoTo_Conversions_Lead-ads_Leasing-FL-B2B_GO01B09E07B03A', 
+                'Lead Form - GoTo & Colmobil - Leasing', 
+                'Lead Form - GoTo & Colmobil - Leasing B2B - 22/02/2026'
+            ],
+            'גוגל - PMAX - B2C': [
+                'KLG_GoTo_Pmax_Leasing_B2C_t1020'
+            ],
+            'גוגל חיפוש - B2C+B2B': [
+                'KLG_GoTo_Search_Generic_Lead_Leasing-FL-B2B_t1021'
+            ]
+        };
+
+        const VEHICLES = {
+            'יאריס קרוס': [/yaris.*cross/i, /יאריס.*קרוס/i],
+            'יאריס רגילה': [/\byaris\b/i, /יאריס(?!.*קרוס)/i],
+            'יונדאי וניו': [/venue/i, /וניו/i, /בניו/i]
+        };
+
+        const INTENTS = {
+            'רגישות למחיר ותקציב (Budget/Price)': [/price/i, /budget/i, /expensive/i, /יקר/i, /תקציב/i, /מקדמה/i],
+            'צורך בגמישות / טווח קצר (Short Term)': [/short.*term/i, /short.*period/i, /תקופה.*קצרה/i, /כמה.*חודשים/i, /\bmonths\b/i],
+            'נדרש המשך טיפול יזום (Follow Up)': [/follow.*up/i, /call.*back/i, /פולו/i, /לחזור.*אליו/i, /מחר/i]
+        };
+
+        const BAD_STATUSES = ['Duplicate Lead', 'Invalid Data', 'Under 21', 'No Service'];
+        let charts = {};
+
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('fileName').innerText = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+                analyzeData(json);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function analyzeData(data) {
+            let total = data.length;
+            let unresponsiveCount = 0;
+            let cullCount = 0;
+            
+            let leakageTypes = { 'לידים כפולים': 0, 'נתונים שגויים': 0, 'צעיר מגיל סף': 0, 'אין שירות באזור': 0 };
+            
+            let channelMetrics = {};
+            Object.keys(MARKETING_CHANNELS).forEach(ch => {
+                channelMetrics[ch] = { total: 0, unresponsive: 0, cull: 0, notes: {} };
+            });
+            channelMetrics['אורגני / ערוצים אחרים'] = { total: 0, unresponsive: 0, cull: 0, notes: {} };
+
+            let intentsScore = {};
+            Object.keys(INTENTS).forEach(k => intentsScore[k] = 0);
+            
+            let crossMentionCount = 0; // ספירת שיחות התלבטות
+
+            data.forEach(row => {
+                let status = (row['Status Reason (Regarding) (Lead)'] || row['Status Reason'] || '').trim();
+                let campaign = (row['Campaign (Regarding) (Lead)'] || row['Campaign'] || '').trim();
+                let desc = (row['Description'] || row['Subject'] || '');
+
+                if (status === 'Unresponsive') unresponsiveCount++;
+                if (BAD_STATUSES.includes(status)) cullCount++;
+
+                // סיווג דליפות משפך
+                if (status === 'Duplicate Lead') leakageTypes['לידים כפולים']++;
+                if (status === 'Invalid Data') leakageTypes['נתונים שגויים']++;
+                if (status === 'Under 21') leakageTypes['צעיר מגיל סף']++;
+                if (status === 'No Service') leakageTypes['אין שירות באזור']++;
+
+                // שיוך לערוץ מדיה מדויק
+                let matchedChannel = 'אורגני / ערוצים אחרים';
+                for (let [channelName, campaignsList] of Object.entries(MARKETING_CHANNELS)) {
+                    if (campaignsList.includes(campaign)) {
+                        matchedChannel = channelName;
+                        break;
+                    }
+                }
+
+                let chObj = channelMetrics[matchedChannel];
+                chObj.total++;
+                if (status === 'Unresponsive') chObj.unresponsive++;
+                if (BAD_STATUSES.includes(status)) chObj.cull++;
+
+                // ניתוח טקסט מתקדם
+                Object.entries(INTENTS).forEach(([k, regexes]) => {
+                    if (regexes.some(rx => rx.test(desc))) {
+                        intentsScore[k]++;
+                        chObj.notes[k] = (chObj.notes[k] || 0) + 1;
+                    }
+                });
+
+                // ניתוח מטריצת התלבטות (רכב) - האם הוזכרו יחד?
+                let vehiclesFound = [];
+                Object.entries(VEHICLES).forEach(([vName, rxList]) => {
+                    if (rxList.some(rx => rx.test(desc))) vehiclesFound.push(vName);
+                });
+                if (vehiclesFound.length > 1) crossMentionCount++;
+            });
+
+            // עדכון מדדי על
+            document.getElementById('kpiTotal').innerText = total.toLocaleString();
+            document.getElementById('kpiUnresponsive').innerText = total > 0 ? ((unresponsiveCount/total)*100).toFixed(1) + '%' : '0%';
+            document.getElementById('kpiCull').innerText = total > 0 ? ((cullCount/total)*100).toFixed(1) + '%' : '0%';
+            
+            // מציאת הערוץ הגרוע ביותר
+            let worstChannel = '-';
+            let maxWasteRate = -1;
+            Object.entries(channelMetrics).forEach(([name, o]) => {
+                if (o.total > 5) {
+                    let waste = ((o.unresponsive + o.cull) / o.total) * 100;
+                    if (waste > maxWasteRate) { maxWasteRate = waste; worstChannel = name; }
+                }
+            });
+            document.getElementById('kpiWorstChannel').innerText = worstChannel + ` (${maxWasteRate.toFixed(0)}% הפסד)`;
+
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('dashboardContent').classList.remove('hidden');
+
+            // רינדור גרפים וטבלה
+            renderChannelChart(channelMetrics);
+            renderLeakageChart(leakageTypes);
+            renderIntents(intentsScore, total);
+            renderAffinity(crossMentionCount, total);
+            renderTable(channelMetrics);
+        }
+
+        function renderChannelChart(metrics) {
+            const ctx = document.getElementById('chartChannels').getContext('2d');
+            const labels = Object.keys(metrics);
+            
+            if(charts.channels) charts.channels.destroy();
+            charts.channels = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'לידים שלא ענו (Unresponsive %)',
+                            data: labels.map(l => metrics[l].total > 0 ? ((metrics[l].unresponsive / metrics[l].total)*100).toFixed(1) : 0),
+                            backgroundColor: '#f97316'
+                        },
+                        {
+                            label: 'לידים פסולים מקצועית (Cull %)',
+                            data: labels.map(l => metrics[l].total > 0 ? ((metrics[l].cull / metrics[l].total)*100).toFixed(1) : 0),
+                            backgroundColor: '#ef4444'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { stacked: true, max: 100 }, x: { stacked: true } },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        function renderLeakageChart(leakage) {
+            const ctx = document.getElementById('chartLeakage').getContext('2d');
+            if(charts.leakage) charts.leakage.destroy();
+            charts.leakage = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(leakage),
+                    datasets: [{
+                        data: Object.values(leakage),
+                        backgroundColor: ['#f87171', '#fbcfe8', '#fef08a', '#fed7aa']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderIntents(scores, total) {
+            const container = document.getElementById('intentsContainer');
+            container.innerHTML = '';
+            Object.entries(scores).forEach(([name, val]) => {
+                let pct = total > 0 ? ((val/total)*100).toFixed(1) : 0;
+                container.insertAdjacentHTML('beforeend', `
+                    <div>
+                        <div class="flex justify-between text-xs font-medium mb-1"><span>${name}</span><span class="text-slate-500">${val} שיחות (${pct}%)</span></div>
+                        <div class="w-full bg-slate-100 rounded-full h-2"><div class="bg-indigo-600 h-2 rounded-full" style="width: ${pct}%"></div></div>
+                    </div>
+                `);
+            });
+        }
+
+        function renderAffinity(crossCount, total) {
+            const container = document.getElementById('affinityContainer');
+            let pct = total > 0 ? ((crossCount/total)*100).toFixed(1) : 0;
+            container.innerHTML = `
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="text-2xl font-bold text-slate-800">${crossCount} שיחות</div>
+                    <div class="text-xs text-slate-500 mt-1">מתוך סך השיחות (${pct}%) כללו התלבטות ישירה והשוואה פעילה בין מספר דגמי רכב במקביל (למשל: יאריס קרוס מול יונדאי וניו).</div>
+                    <div class="w-full bg-slate-200 rounded-full h-2 mt-3"><div class="bg-emerald-500 h-2 rounded-full" style="width: ${pct}%"></div></div>
+                </div>
+            `;
+        }
+
+        function renderTable(metrics) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = '';
+            Object.entries(metrics).forEach(([name, o]) => {
+                let totalBadPct = o.total > 0 ? (((o.unresponsive + o.cull)/o.total)*100).toFixed(1) : 0;
+                let topIssue = '-';
+                if(Object.keys(o.notes).length > 0) {
+                    topIssue = Object.entries(o.notes).sort((a,b)=>b[1]-a[1])[0][0];
+                }
+                
+                let rowColor = totalBadPct > 50 ? 'bg-red-50/30' : '';
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${rowColor} hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-medium text-slate-900">${name}</td>
+                        <td class="p-4 text-center font-bold">${o.total}</td>
+                        <td class="p-4 text-center text-orange-600">${o.unresponsive}</td>
+                        <td class="p-4 text-center text-red-500">${o.cull}</td>
+                        <td class="p-4 text-center font-bold text-slate-800">${totalBadPct}%</td>
+                        <td class="p-4 text-xs text-slate-500 font-medium">${topIssue}</td>
+                    </tr>
+                `);
+            });
+        }
+    </script>
+</body>
+</html>
